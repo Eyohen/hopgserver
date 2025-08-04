@@ -18,17 +18,10 @@ const addressRoutes = require('./routes/address');
 const reviewRoutes = require('./routes/review');
 const wishlistRoutes = require('./routes/wishlist');
 const analyticsRoutes = require('./routes/analytics');
+const userRoutes = require('./routes/user');
 
 const app = express();
 const port = process.env.API_PORT || 5000;
-
-// Middleware
-// app.use(cors({
-//   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-//   credentials: true
-// }));
 app.use(cors());
 
 app.use(helmet());
@@ -62,6 +55,7 @@ app.use('/api/addresses', addressRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/user', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,5 +1,5 @@
 
-// controllers/address.js
+// controller/address.js
 const db = require('../models');
 const { Address } = db;
 

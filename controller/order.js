@@ -1,5 +1,5 @@
 
-// controllers/order.js
+// controller/order.js
 const db = require('../models');
 const { Order, OrderItem, Product, User, Address, Payment } = db;
 const { v4: uuidv4 } = require('uuid');
@@ -118,6 +118,7 @@ const createOrder = async (req, res) => {
   }
 };
 
+
 const getUserOrders = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -137,6 +138,11 @@ const getUserOrders = async (req, res) => {
         {
           model: Address,
           as: 'shippingAddress'
+        },
+        {
+          model: User,  // ADD THIS
+          as: 'user',   // ADD THIS
+          attributes: ['firstName', 'lastName', 'email'] // ADD THIS
         }
       ],
       order: [['createdAt', 'DESC']],
@@ -157,6 +163,7 @@ const getUserOrders = async (req, res) => {
     res.status(500).json({ message: 'Failed to get orders', error: error.message });
   }
 };
+
 
 const getOrderById = async (req, res) => {
   try {

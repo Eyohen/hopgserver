@@ -1,5 +1,5 @@
 
-// controllers/category.js
+// controller/category.js
 const db = require('../models');
 const { Category, Product } = db;
 const { uploadToCloudinary } = require('../middleware/cloudinary');
