@@ -1,5 +1,5 @@
 
-// controllers/auth.js
+// controller/auth.js
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../models');

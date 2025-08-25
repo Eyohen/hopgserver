@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,6 +10,7 @@ const db = require('./models');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/product');
 const categoryRoutes = require('./routes/category');
+const brandRoutes = require('./routes/brand');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/order');
 const paymentRoutes = require('./routes/payment');
@@ -19,6 +19,8 @@ const reviewRoutes = require('./routes/review');
 const wishlistRoutes = require('./routes/wishlist');
 const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/user');
+const discountRoutes = require('./routes/discount'); 
+
 
 const app = express();
 const port = process.env.API_PORT || 5000;
@@ -48,6 +50,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/brands', brandRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -56,6 +59,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/discounts', discountRoutes); 
 
 // Error handling middleware
 app.use((err, req, res, next) => {

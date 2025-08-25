@@ -1,5 +1,5 @@
 
-// controllers/payment.js
+// controller/payment.js
 const db = require('../models');
 const { Payment, Order } = db;
 
