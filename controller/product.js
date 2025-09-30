@@ -9,25 +9,13 @@ const Brand = db.Brand || null;
 
 const create = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      originalPrice,
-      categoryId,
-      brandId,
-      flavors,
-      sizes,
-      nutritionFacts,
-      ingredients,
-      stockQuantity,
-      weight,
-      sku,
-      tags
+    const { 
+      name, description, price, originalPrice, categoryId, brandId,
+      flavors, sizes, nutritionFacts, ingredients, stockQuantity, 
+      weight, sku, tags 
     } = req.body;
 
     let imageUrl = null;
-    let images = [];
 
     // Handle single image upload
     if (req.file) {
@@ -38,22 +26,6 @@ const create = async (req, res) => {
       imageUrl = uploadResult.url;
     }
 
-    // Handle multiple images if provided
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        const uploadResult = await uploadToCloudinary(file.buffer);
-        if (uploadResult.message === "success") {
-          images.push(uploadResult.url);
-        }
-      }
-
-      // Set first uploaded image as main imageUrl if not already set
-      if (!imageUrl && images.length > 0) {
-        imageUrl = images[0];
-      }
-    }
-
-    // Generate SKU if not provided
     const generatedSku = sku || `PRO-${Date.now()}`;
 
     const product = await Product.create({
@@ -64,7 +36,7 @@ const create = async (req, res) => {
       categoryId,
       brandId: brandId || null,
       imageUrl,
-      images,
+      images: [],
       flavors: flavors ? JSON.parse(flavors) : null,
       sizes: sizes ? JSON.parse(sizes) : null,
       nutritionFacts: nutritionFacts ? JSON.parse(nutritionFacts) : null,
