@@ -1,3 +1,4 @@
+//index.js
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -23,7 +24,7 @@ const discountRoutes = require('./routes/discount');
 
 
 const app = express();
-const port = process.env.API_PORT || 5000;
+const port = process.env.API_PORT || 9000;
 app.use(cors());
 
 app.use(helmet());
