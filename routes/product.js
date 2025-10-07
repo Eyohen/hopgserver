@@ -11,7 +11,7 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.post('/', verifyToken, verifyAdmin, upload.array('images', 5), validateProduct, create);
+router.post('/', verifyToken, verifyAdmin, upload.array('imageUrl', 5), validateProduct, create);
 router.get('/', getAll);
 router.get('/featured', getFeatured);
 router.get('/:id', getById);

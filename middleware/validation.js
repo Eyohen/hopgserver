@@ -54,4 +54,26 @@ const validateProduct = (req, res, next) => {
   next();
 };
 
-module.exports = { validateRegister, validateProduct };
+
+
+const validateDeliveryFee = (req, res, next) => {
+  const { state, fee } = req.body;
+
+  if (!state || state.trim() === '') {
+    return res.status(400).json({ message: 'State is required' });
+  }
+
+  if (fee === undefined || fee === null || fee < 0) {
+    return res.status(400).json({ message: 'Valid fee is required' });
+  }
+
+  next();
+};
+
+// Don't forget to export it
+module.exports = {
+  // ... your existing exports
+  validateDeliveryFee
+};
+
+module.exports = { validateRegister, validateProduct, validateDeliveryFee };

@@ -16,6 +16,7 @@ module.exports = {
     //     "rejectUnauthorized": false
     //   },
     // },
+    logging: false,
   },
   "test": {
     "username": "root",
@@ -37,5 +38,6 @@ module.exports = {
         "rejectUnauthorized": false,
       },
     },
+  
   }
 }
