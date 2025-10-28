@@ -256,13 +256,39 @@ const createOrder = async (req, res) => {
   const transaction = await db.sequelize.transaction();
 
   try {
-    const { items, shippingAddressId, paymentMethod, discountCode } = req.body;
-    const userId = req.user.id;
+    const { items, shippingAddressId, guestShippingInfo, paymentMethod, discountCode } = req.body;
+    const userId = req.user?.id; // Optional for guest checkout
 
-    // Validate address
-    const address = await Address.findOne({ where: { id: shippingAddressId, userId } });
-    if (!address) {
-      return res.status(400).json({ message: 'Invalid shipping address' });
+    let address = null;
+    let addressId = null;
+
+    // Handle address - either from saved address or guest shipping info
+    if (shippingAddressId && userId) {
+      // Authenticated user with saved address
+      address = await Address.findOne({ where: { id: shippingAddressId, userId } });
+      if (!address) {
+        return res.status(400).json({ message: 'Invalid shipping address' });
+      }
+      addressId = address.id;
+    } else if (guestShippingInfo) {
+      // Guest checkout or authenticated user entering new address
+      // Create a temporary address record for the order
+      address = await Address.create({
+        userId: userId || null, // null for guest orders
+        type: 'shipping',
+        firstName: guestShippingInfo.firstName,
+        lastName: guestShippingInfo.lastName,
+        streetAddress: guestShippingInfo.streetAddress,
+        city: guestShippingInfo.city,
+        state: guestShippingInfo.state,
+        zipCode: guestShippingInfo.zipCode,
+        country: guestShippingInfo.country || 'Nigeria',
+        phoneNumber: guestShippingInfo.phone,
+        isDefault: false
+      }, { transaction });
+      addressId = address.id;
+    } else {
+      return res.status(400).json({ message: 'Shipping address is required' });
     }
 
     // Calculate subtotal
@@ -362,7 +388,7 @@ const createOrder = async (req, res) => {
     // Create order
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
-      userId,
+      userId: userId || null, // null for guest orders
       subtotal,
       discountAmount,
       discountId: discount ? discount.id : null,
@@ -370,8 +396,9 @@ const createOrder = async (req, res) => {
       tax,
       shipping,
       total,
-      shippingAddressId,
-      status: 'pending'
+      shippingAddressId: addressId,
+      status: 'pending',
+      guestEmail: guestShippingInfo?.email || null // Store guest email for order tracking
     }, { transaction });
 
     // Create order items
@@ -385,7 +412,7 @@ const createOrder = async (req, res) => {
     // Create payment record
     await Payment.create({
       orderId: order.id,
-      userId,
+      userId: userId || null, // null for guest orders
       paymentMethod,
       amount: total,
       status: 'pending',
@@ -396,7 +423,7 @@ const createOrder = async (req, res) => {
     if (discount) {
       await DiscountUsage.create({
         discountId: discount.id,
-        userId,
+        userId: userId || null, // null for guest orders
         orderId: order.id,
         discountAmount,
         originalAmount: subtotal,
@@ -493,6 +520,67 @@ const getUserOrders = async (req, res) => {
   }
 };
 
+// Get ALL orders (for admin)
+const getAllOrders = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status, search } = req.query;
+
+    const where = {};
+    if (status) where.status = status;
+
+    // Add search functionality
+    let searchConditions = {};
+    if (search) {
+      searchConditions = {
+        [Op.or]: [
+          { orderNumber: { [Op.like]: `%${search}%` } }
+        ]
+      };
+    }
+
+    const orders = await Order.findAndCountAll({
+      where: { ...where, ...searchConditions },
+      include: [
+        {
+          model: OrderItem,
+          as: 'orderItems',
+          include: [{ model: Product, as: 'product' }]
+        },
+        {
+          model: Address,
+          as: 'shippingAddress'
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'email']
+        },
+        {
+          model: Discount,
+          as: 'discount',
+          attributes: ['code', 'name', 'type', 'value']
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: (page - 1) * limit
+    });
+
+    res.json({
+      orders: orders.rows,
+      pagination: {
+        total: orders.count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(orders.count / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAllOrders:', error);
+    res.status(500).json({ message: 'Failed to get orders', error: error.message });
+  }
+};
+
 const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -554,4 +642,4 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getUserOrders, getOrderById, updateOrderStatus };
+module.exports = { createOrder, getUserOrders, getAllOrders, getOrderById, updateOrderStatus };
