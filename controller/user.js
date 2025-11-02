@@ -302,10 +302,42 @@ const getUserStats = async (req, res) => {
   }
 };
 
-module.exports = { 
-  getAllUsers, 
-  getUserById, 
-  updateUser, 
-  deleteUser, 
-  getUserStats 
+const changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    // Validate new password
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        message: 'New password is required and must be at least 6 characters long'
+      });
+    }
+
+    // Find the user
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update password (will be automatically hashed by the beforeUpdate hook)
+    await user.update({ password: newPassword });
+
+    res.json({
+      message: 'Password changed successfully',
+      userId: user.id
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ message: 'Failed to change password', error: error.message });
+  }
+};
+
+module.exports = {
+  getAllUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  getUserStats,
+  changePassword
 };
