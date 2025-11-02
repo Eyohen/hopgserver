@@ -284,15 +284,57 @@ const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Check if product exists
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Delete associated data first to avoid foreign key constraints
+    try {
+      // Delete reviews
+      if (Review) {
+        await Review.destroy({ where: { productId: id } });
+      }
+
+      // Delete cart items (if CartItem model exists)
+      if (db.CartItem) {
+        await db.CartItem.destroy({ where: { productId: id } });
+      }
+
+      // Delete wishlist items (if Wishlist model exists)
+      if (db.Wishlist) {
+        await db.Wishlist.destroy({ where: { productId: id } });
+      }
+
+      // Note: We don't delete OrderItems as they are historical records
+      // If you need to prevent deletion when orders exist, add a check here
+
+    } catch (cleanupError) {
+      console.log('Error cleaning up associated records:', cleanupError.message);
+      // Continue with deletion attempt
+    }
+
+    // Delete the product
     const deleted = await Product.destroy({ where: { id } });
 
     if (deleted) {
-      res.json({ message: 'Product deleted successfully' });
+      res.json({
+        message: 'Product deleted successfully',
+        productId: id
+      });
     } else {
       res.status(404).json({ message: 'Product not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete product', error: error.message });
+    console.error('Error deleting product:', error);
+    res.status(500).json({
+      message: 'Failed to delete product',
+      error: error.message,
+      details: error.name === 'SequelizeForeignKeyConstraintError'
+        ? 'Cannot delete product with existing orders'
+        : undefined
+    });
   }
 };
 
