@@ -16,27 +16,51 @@ const generateDiscountCode = () => {
 // Create discount
 const createDiscount = async (req, res) => {
   try {
-    const { 
-      name, 
-      description, 
-      value, 
+    const {
+      code: customCode,
+      name,
+      description,
+      value,
       type = 'percentage',
-      minOrderAmount = 0, 
+      minOrderAmount = 0,
       maxDiscountAmount,
       usageLimit,
       userUsageLimit = 1,
-      validUntil 
+      validUntil
     } = req.body;
 
     const adminId = req.user.id;
 
-    // Generate unique code
+    // Use custom code if provided, otherwise generate one
     let code;
-    let codeExists = true;
-    while (codeExists) {
-      code = generateDiscountCode();
-      const existingDiscount = await Discount.findOne({ where: { code } });
-      codeExists = !!existingDiscount;
+    if (customCode) {
+      // Validate custom code format
+      const codeRegex = /^[A-Z0-9]{4,20}$/;
+      const trimmedCode = customCode.trim().toUpperCase();
+
+      if (!codeRegex.test(trimmedCode)) {
+        return res.status(400).json({
+          message: 'Discount code must be 4-20 characters long and contain only uppercase letters and numbers'
+        });
+      }
+
+      // Check if code already exists
+      const existingDiscount = await Discount.findOne({ where: { code: trimmedCode } });
+      if (existingDiscount) {
+        return res.status(400).json({
+          message: 'Discount code already exists. Please choose a different code.'
+        });
+      }
+
+      code = trimmedCode;
+    } else {
+      // Generate unique code
+      let codeExists = true;
+      while (codeExists) {
+        code = generateDiscountCode();
+        const existingDiscount = await Discount.findOne({ where: { code } });
+        codeExists = !!existingDiscount;
+      }
     }
 
     const discount = await Discount.create({
@@ -153,8 +177,36 @@ const updateDiscount = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
 
-    const [updated] = await Discount.update(updateData, { 
-      where: { id } 
+    // If code is being updated, validate it
+    if (updateData.code) {
+      const codeRegex = /^[A-Z0-9]{4,20}$/;
+      const trimmedCode = updateData.code.trim().toUpperCase();
+
+      if (!codeRegex.test(trimmedCode)) {
+        return res.status(400).json({
+          message: 'Discount code must be 4-20 characters long and contain only uppercase letters and numbers'
+        });
+      }
+
+      // Check if the new code is already used by another discount
+      const existingDiscount = await Discount.findOne({
+        where: {
+          code: trimmedCode,
+          id: { [Op.ne]: id } // Exclude current discount from check
+        }
+      });
+
+      if (existingDiscount) {
+        return res.status(400).json({
+          message: 'Discount code already exists. Please choose a different code.'
+        });
+      }
+
+      updateData.code = trimmedCode;
+    }
+
+    const [updated] = await Discount.update(updateData, {
+      where: { id }
     });
 
     if (updated) {
@@ -167,17 +219,17 @@ const updateDiscount = async (req, res) => {
           }
         ]
       });
-      res.json({ 
-        message: 'Discount code updated successfully', 
-        discount: updatedDiscount 
+      res.json({
+        message: 'Discount code updated successfully',
+        discount: updatedDiscount
       });
     } else {
       res.status(404).json({ message: 'Discount code not found' });
     }
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update discount code', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update discount code',
+      error: error.message
     });
   }
 };
@@ -252,29 +304,11 @@ const validateDiscountCode = async (req, res) => {
       return res.status(404).json({ message: 'Invalid or expired discount code' });
     }
 
-    // Check usage limits
-    if (discount.usageLimit && discount.usageCount >= discount.usageLimit) {
-      return res.status(400).json({ message: 'Discount code usage limit exceeded' });
-    }
-
     // Check minimum order amount
     if (subtotal < discount.minOrderAmount) {
-      return res.status(400).json({ 
-        message: `Minimum order amount of ₦${discount.minOrderAmount} required for this discount` 
+      return res.status(400).json({
+        message: `Minimum order amount of ₦${discount.minOrderAmount} required for this discount`
       });
-    }
-
-    // Check user usage limit (if user is logged in)
-    if (userId && discount.userUsageLimit) {
-      const userUsageCount = await DiscountUsage.count({
-        where: { discountId: discount.id, userId }
-      });
-
-      if (userUsageCount >= discount.userUsageLimit) {
-        return res.status(400).json({ 
-          message: 'You have reached the usage limit for this discount code' 
-        });
-      }
     }
 
     // Calculate discount amount
@@ -312,24 +346,47 @@ const validateDiscountCode = async (req, res) => {
 // Create quick discount (5%, 10%, 15%, 20%, 25%)
 const createQuickDiscount = async (req, res) => {
   try {
-    const { percentage, name, description, validUntil } = req.body;
+    const { percentage, name, description, validUntil, code: customCode } = req.body;
     const adminId = req.user.id;
 
     // Validate percentage
     const allowedPercentages = [5, 10, 15, 20, 25];
     if (!allowedPercentages.includes(percentage)) {
-      return res.status(400).json({ 
-        message: 'Invalid percentage. Allowed values: 5, 10, 15, 20, 25' 
+      return res.status(400).json({
+        message: 'Invalid percentage. Allowed values: 5, 10, 15, 20, 25'
       });
     }
 
-    // Generate unique code
+    // Use custom code if provided, otherwise generate one
     let code;
-    let codeExists = true;
-    while (codeExists) {
-      code = `SAVE${percentage}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-      const existingDiscount = await Discount.findOne({ where: { code } });
-      codeExists = !!existingDiscount;
+    if (customCode) {
+      // Validate custom code format
+      const codeRegex = /^[A-Z0-9]{4,20}$/;
+      const trimmedCode = customCode.trim().toUpperCase();
+
+      if (!codeRegex.test(trimmedCode)) {
+        return res.status(400).json({
+          message: 'Discount code must be 4-20 characters long and contain only uppercase letters and numbers'
+        });
+      }
+
+      // Check if code already exists
+      const existingDiscount = await Discount.findOne({ where: { code: trimmedCode } });
+      if (existingDiscount) {
+        return res.status(400).json({
+          message: 'Discount code already exists. Please choose a different code.'
+        });
+      }
+
+      code = trimmedCode;
+    } else {
+      // Generate unique code
+      let codeExists = true;
+      while (codeExists) {
+        code = `SAVE${percentage}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const existingDiscount = await Discount.findOne({ where: { code } });
+        codeExists = !!existingDiscount;
+      }
     }
 
     const discount = await Discount.create({

@@ -345,25 +345,9 @@ const createOrder = async (req, res) => {
         throw new Error('Invalid or expired discount code');
       }
 
-      // Check usage limits
-      if (discount.usageLimit && discount.usageCount >= discount.usageLimit) {
-        throw new Error('Discount code usage limit exceeded');
-      }
-
       // Check minimum order amount
       if (subtotal < discount.minOrderAmount) {
         throw new Error(`Minimum order amount of ₦${discount.minOrderAmount} required for this discount`);
-      }
-
-      // Check user usage limit
-      if (discount.userUsageLimit) {
-        const userUsageCount = await DiscountUsage.count({
-          where: { discountId: discount.id, userId }
-        });
-
-        if (userUsageCount >= discount.userUsageLimit) {
-          throw new Error('You have reached the usage limit for this discount code');
-        }
       }
 
       // Calculate discount amount
