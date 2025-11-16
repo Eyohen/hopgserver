@@ -84,9 +84,11 @@ db.sequelize
   .authenticate()
   .then(() => {
     console.log(`✅ Database connection established successfully... ${process.env.NODE_ENV}`);
-    
-    // Sync database
-    return db.sequelize.sync({ alter: true });
+
+    // Database schema is managed via Sequelize migrations
+    // Run 'npm run migrate' to apply pending migrations
+    // Replaced: db.sequelize.sync({ alter: true })
+    return Promise.resolve();
   })
   .then(() => {
     console.log('✅ All models synchronized successfully');

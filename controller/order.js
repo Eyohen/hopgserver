@@ -267,15 +267,15 @@ const createOrder = async (req, res) => {
       // Authenticated user with saved address
       address = await Address.findOne({ where: { id: shippingAddressId, userId } });
       if (!address) {
+        await transaction.rollback();
         return res.status(400).json({ message: 'Invalid shipping address' });
       }
       addressId = address.id;
-    } else if (guestShippingInfo) {
-      // Guest checkout or authenticated user entering new address
-      // Create a temporary address record for the order
+    } else if (guestShippingInfo && userId) {
+      // Authenticated user entering new address - create Address record
       address = await Address.create({
-        userId: userId || null, // null for guest orders
-        type: 'shipping',
+        userId: userId,
+        type: 'home',
         firstName: guestShippingInfo.firstName,
         lastName: guestShippingInfo.lastName,
         streetAddress: guestShippingInfo.streetAddress,
@@ -283,11 +283,16 @@ const createOrder = async (req, res) => {
         state: guestShippingInfo.state,
         zipCode: guestShippingInfo.zipCode,
         country: guestShippingInfo.country || 'Nigeria',
-        phoneNumber: guestShippingInfo.phone,
+        phone: guestShippingInfo.phone,
         isDefault: false
       }, { transaction });
       addressId = address.id;
+    } else if (guestShippingInfo && !userId) {
+      // Guest checkout - don't create Address record (requires userId)
+      // Address info will be stored in Order.guestEmail and retrieved from guestShippingInfo
+      addressId = null;
     } else {
+      await transaction.rollback();
       return res.status(400).json({ message: 'Shipping address is required' });
     }
 
@@ -317,11 +322,8 @@ const createOrder = async (req, res) => {
         selectedSize: item.selectedSize
       });
 
-      // Update stock
-      await product.update({ 
-        stockQuantity: product.stockQuantity - item.quantity,
-        salesCount: product.salesCount + item.quantity
-      }, { transaction });
+      // NOTE: Stock will be updated after payment confirmation
+      // Removed stock update from here to prevent issues with abandoned orders
     }
 
     // Handle discount validation and calculation
@@ -382,7 +384,8 @@ const createOrder = async (req, res) => {
       total,
       shippingAddressId: addressId,
       status: 'pending',
-      guestEmail: guestShippingInfo?.email || null // Store guest email for order tracking
+      guestEmail: guestShippingInfo?.email || null, // Store guest email for order tracking
+      guestShippingInfo: guestShippingInfo || null // Store complete guest shipping details
     }, { transaction });
 
     // Create order items
@@ -403,21 +406,8 @@ const createOrder = async (req, res) => {
       currency: 'NGN'
     }, { transaction });
 
-    // If discount was used, create usage record and update count
-    if (discount) {
-      await DiscountUsage.create({
-        discountId: discount.id,
-        userId: userId || null, // null for guest orders
-        orderId: order.id,
-        discountAmount,
-        originalAmount: subtotal,
-        finalAmount: total
-      }, { transaction });
-
-      await discount.update({
-        usageCount: discount.usageCount + 1
-      }, { transaction });
-    }
+    // NOTE: Discount usage will be recorded after payment confirmation
+    // Removed discount usage recording from here to prevent issues with abandoned orders
 
     await transaction.commit();
 
@@ -450,6 +440,11 @@ const createOrder = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
+    console.error('❌ ORDER CREATION ERROR:');
+    console.error('Error message:', error.message);
+    console.error('Error name:', error.name);
+    console.error('Full error:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
 };

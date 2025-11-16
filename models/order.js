@@ -46,7 +46,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true, // Allow null for guest checkout
       references: {
         model: 'Users',
         key: 'id'
@@ -95,7 +95,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     shippingAddressId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true, // Allow null for guest checkout
       references: {
         model: 'Addresses',
         key: 'id'
@@ -115,6 +115,14 @@ module.exports = (sequelize, DataTypes) => {
     },
     notes: {
       type: DataTypes.TEXT,
+      allowNull: true
+    },
+    guestEmail: {
+      type: DataTypes.STRING,
+      allowNull: true // For guest orders
+    },
+    guestShippingInfo: {
+      type: DataTypes.JSONB, // Store guest shipping details
       allowNull: true
     }
   }, {
