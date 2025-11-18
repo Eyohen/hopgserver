@@ -564,9 +564,16 @@ const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const isAdmin = req.user.isAdmin;
+
+    // Build where clause - admins can view any order, regular users only their own
+    const whereClause = { id };
+    if (!isAdmin) {
+      whereClause.userId = userId;
+    }
 
     const order = await Order.findOne({
-      where: { id, userId },
+      where: whereClause,
       include: [
         {
           model: OrderItem,
@@ -584,6 +591,11 @@ const getOrderById = async (req, res) => {
         {
           model: Discount,
           as: 'discount'
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'email']
         }
       ]
     });
