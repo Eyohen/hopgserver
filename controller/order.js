@@ -244,7 +244,7 @@
 
 // controller/order.js (Updated with discount support)
 const db = require('../models');
-const { Order, OrderItem, Product, User, Address, Payment, Discount, DiscountUsage } = db;
+const { Order, OrderItem, Product, User, Address, Payment, Discount, DiscountUsage, DeliveryFee } = db;
 const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
 
@@ -367,9 +367,31 @@ const createOrder = async (req, res) => {
       discountAmount = Math.min(discountAmount, subtotal); // Can't discount more than subtotal
     }
 
-    const shipping = subtotal > 23000 ? 0 : 2500; // Free shipping over ₦23,000
-    const tax = (subtotal - discountAmount) * 0.075; // 7.5% VAT on discounted amount
-    const total = subtotal - discountAmount + shipping + tax;
+    // Get delivery state and look up delivery fee
+    let deliveryState = null;
+    let deliveryFeeRecord = null;
+    let shipping = 0;
+
+    // Determine the delivery state from address or guest shipping info
+    if (address && address.state) {
+      deliveryState = address.state;
+    } else if (guestShippingInfo && guestShippingInfo.state) {
+      deliveryState = guestShippingInfo.state;
+    }
+
+    // Look up delivery fee for the state
+    if (deliveryState) {
+      deliveryFeeRecord = await DeliveryFee.findOne({
+        where: { state: deliveryState, isActive: true }
+      });
+
+      if (deliveryFeeRecord) {
+        shipping = parseFloat(deliveryFeeRecord.fee);
+      }
+    }
+
+    const tax = 0; // Tax removed as per business requirements
+    const total = subtotal - discountAmount + shipping;
 
     // Create order
     const order = await Order.create({
@@ -383,6 +405,7 @@ const createOrder = async (req, res) => {
       shipping,
       total,
       shippingAddressId: addressId,
+      deliveryFeeId: deliveryFeeRecord ? deliveryFeeRecord.id : null,
       status: 'pending',
       guestEmail: guestShippingInfo?.email || null, // Store guest email for order tracking
       guestShippingInfo: guestShippingInfo || null // Store complete guest shipping details
@@ -596,6 +619,11 @@ const getOrderById = async (req, res) => {
           model: User,
           as: 'user',
           attributes: ['id', 'firstName', 'lastName', 'email']
+        },
+        {
+          model: DeliveryFee,
+          as: 'deliveryFee',
+          attributes: ['id', 'state', 'fee', 'zone', 'estimatedDays']
         }
       ]
     });
