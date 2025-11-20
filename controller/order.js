@@ -379,15 +379,46 @@ const createOrder = async (req, res) => {
       deliveryState = guestShippingInfo.state;
     }
 
-    // Look up delivery fee for the state
+    // Look up delivery fee for the state (case-insensitive)
     if (deliveryState) {
+      // Use case-insensitive search to handle variations like "Edo" vs "edo" vs "EDO"
       deliveryFeeRecord = await DeliveryFee.findOne({
-        where: { state: deliveryState, isActive: true }
+        where: {
+          state: {
+            [Op.iLike]: deliveryState
+          },
+          isActive: true
+        }
       });
 
       if (deliveryFeeRecord) {
         shipping = parseFloat(deliveryFeeRecord.fee);
+        console.log(`✅ Delivery fee found for "${deliveryState}": ₦${shipping} (matched: "${deliveryFeeRecord.state}")`);
+      } else {
+        // Log warning - this should never happen since every state must have a delivery fee
+        console.warn(`⚠️  WARNING: No active delivery fee found for state: "${deliveryState}"`);
+        console.warn(`   Order will be created with shipping = 0, which WILL cause accounting issues!`);
+
+        // Try to find any delivery fee for this state (including inactive)
+        const anyFee = await DeliveryFee.findOne({
+          where: {
+            state: {
+              [Op.iLike]: deliveryState
+            }
+          }
+        });
+
+        if (anyFee && !anyFee.isActive) {
+          console.warn(`   Found INACTIVE delivery fee: ₦${anyFee.fee}`);
+          console.warn(`   Please activate this delivery fee or the order total will be wrong!`);
+        } else if (!anyFee) {
+          console.warn(`   No delivery fee record exists for this state at all!`);
+          console.warn(`   Please create a delivery fee for "${deliveryState}"`);
+        }
       }
+    } else {
+      console.warn(`⚠️  WARNING: No delivery state found for order!`);
+      console.warn(`   Address: ${address ? 'Found' : 'Not found'}, Guest Info: ${guestShippingInfo ? 'Found' : 'Not found'}`);
     }
 
     const tax = 0; // Tax removed as per business requirements
