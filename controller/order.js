@@ -556,7 +556,7 @@ const getUserOrders = async (req, res) => {
 // Get ALL orders (for admin)
 const getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 50, status, search } = req.query;
+    const { page = 1, limit = 50, status, search, paymentStatus } = req.query;
 
     const where = {};
     if (status) where.status = status;
@@ -571,41 +571,56 @@ const getAllOrders = async (req, res) => {
       };
     }
 
+    // Build include array with optional payment status filter
+    const includeArray = [
+      {
+        model: OrderItem,
+        as: 'orderItems',
+        include: [{ model: Product, as: 'product' }]
+      },
+      {
+        model: Address,
+        as: 'shippingAddress'
+      },
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      },
+      {
+        model: Discount,
+        as: 'discount',
+        attributes: ['code', 'name', 'type', 'value']
+      },
+      {
+        model: Payment,
+        as: 'payment',
+        attributes: ['id', 'status', 'paymentMethod', 'paystackReference', 'amount', 'paidAt'],
+        ...(paymentStatus && { where: { status: paymentStatus } })
+      }
+    ];
+
     const orders = await Order.findAndCountAll({
       where: { ...where, ...searchConditions },
-      include: [
-        {
-          model: OrderItem,
-          as: 'orderItems',
-          include: [{ model: Product, as: 'product' }]
-        },
-        {
-          model: Address,
-          as: 'shippingAddress'
-        },
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email']
-        },
-        {
-          model: Discount,
-          as: 'discount',
-          attributes: ['code', 'name', 'type', 'value']
-        }
-      ],
+      include: includeArray,
       order: [['createdAt', 'DESC']],
       limit: parseInt(limit),
       offset: (page - 1) * limit
     });
 
+    // If filtering by payment status, filter out orders without matching payment
+    let filteredOrders = orders.rows;
+    if (paymentStatus) {
+      filteredOrders = orders.rows.filter(order => order.payment);
+    }
+
     res.json({
-      orders: orders.rows,
+      orders: filteredOrders,
       pagination: {
-        total: orders.count,
+        total: paymentStatus ? filteredOrders.length : orders.count,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(orders.count / limit)
+        pages: Math.ceil((paymentStatus ? filteredOrders.length : orders.count) / limit)
       }
     });
   } catch (error) {
