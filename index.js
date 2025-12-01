@@ -20,8 +20,9 @@ const reviewRoutes = require('./routes/review');
 const wishlistRoutes = require('./routes/wishlist');
 const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/user');
-const discountRoutes = require('./routes/discount'); 
+const discountRoutes = require('./routes/discount');
 const deliveryFeeRoutes = require('./routes/deliveryfee');
+const webhookRoutes = require('./routes/webhook');
 
 
 
@@ -31,6 +32,22 @@ app.use(cors());
 
 app.use(helmet());
 app.use(morgan('combined'));
+
+// Webhook routes need raw body for signature verification
+// Must be registered BEFORE express.json() middleware
+app.use('/api/webhooks', express.raw({ type: 'application/json' }), (req, res, next) => {
+  // Store raw body and parse JSON for the webhook handler
+  if (req.body && Buffer.isBuffer(req.body)) {
+    req.rawBody = req.body.toString('utf8');
+    try {
+      req.body = JSON.parse(req.rawBody);
+    } catch (e) {
+      return res.status(400).json({ message: 'Invalid JSON' });
+    }
+  }
+  next();
+}, webhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

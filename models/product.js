@@ -95,6 +95,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true
     },
+    flavour: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     stockQuantity: {
       type: DataTypes.INTEGER,
       defaultValue: 0

@@ -9,10 +9,10 @@ const Brand = db.Brand || null;
 
 const create = async (req, res) => {
   try {
-    const { 
+    const {
       name, description, price, originalPrice, categoryId, brandId,
-      flavors, sizes, nutritionFacts, ingredients, stockQuantity, 
-      weight, sku, tags 
+      flavors, sizes, nutritionFacts, ingredients, stockQuantity,
+      weight, sku, tags, flavour
     } = req.body;
 
     let imageUrl = null;
@@ -41,6 +41,7 @@ const create = async (req, res) => {
       sizes: sizes ? JSON.parse(sizes) : null,
       nutritionFacts: nutritionFacts ? JSON.parse(nutritionFacts) : null,
       ingredients,
+      flavour: flavour || null,
       stockQuantity: stockQuantity || 0,
       weight,
       sku: generatedSku,
